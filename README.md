@@ -4,7 +4,7 @@ Türkiye'nin önde gelen e-ticaret ve moda sitelerindeki ürün fiyatlarını ta
 
 ## Özellikler
 
-- **16 site desteği** — Trendyol, Amazon, Hepsiburada, N11, Beymen, Boyner, Superstep, Fashfed, Sneaksup, Vakkorama, Occasion, MediaMarkt, Atasun Optik, Zara, H&M, Mango
+- **12 site desteği** — Trendyol, Amazon, Hepsiburada, N11, Beymen, Boyner, Superstep, Fashfed, Vakkorama, Occasion, MediaMarkt, Atasun Optik
 - **Otomatik fiyat kontrolü** — Ayarlanabilir aralıklarla (varsayılan: saatte bir) fiyatlar kontrol edilir
 - **Telegram bildirimi** — Fiyat düştüğünde veya hedef fiyata ulaşıldığında anlık mesaj gelir; birden fazla telefon desteklenir
 - **Fiyat geçmişi** — Her ürün için fiyat değişimi grafikle gösterilir

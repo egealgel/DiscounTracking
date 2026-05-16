@@ -1,8 +1,7 @@
 import atexit
-from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 import config
-from models import db, Product, PriceHistory
+from models import db, Product, PriceHistory, now_local
 from scrapers import detect_site, get_scraper
 import scheduler as sched
 
@@ -80,7 +79,7 @@ def add_product():
             target_price=target_price,
             currency=info.get("currency", "TRY"),
             image_url=info.get("image_url"),
-            last_checked_at=datetime.utcnow(),
+            last_checked_at=now_local(),
         )
         db.session.add(product)
         db.session.flush()

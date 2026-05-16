@@ -10,7 +10,9 @@ class MediaMarktScraper(BaseScraper):
         if not resp:
             return None
         soup = BeautifulSoup(resp.text, "lxml")
+        text = resp.text
 
+        # JSON-LD — MediaMarkt bazen Product tipini kullanır
         for script in soup.find_all("script", type="application/ld+json"):
             try:
                 data = json.loads(script.string)
@@ -24,50 +26,58 @@ class MediaMarktScraper(BaseScraper):
                     image = data.get("image")
                     if isinstance(image, list):
                         image = image[0]
-                    return {
-                        "name": data.get("name", "MediaMarkt Ürünü"),
-                        "price": float(price) if price else None,
-                        "currency": "TRY",
-                        "image_url": image,
-                    }
-            except Exception:
-                pass
-
-        # MediaMarkt embeds price in page JSON state
-        for script in soup.find_all("script"):
-            text = script.string or ""
-            if "\"finalPrice\"" in text or "\"price\"" in text:
-                m = re.search(r'"finalPrice"\s*:\s*\{[^}]*"value"\s*:\s*([\d.]+)', text)
-                if not m:
-                    m = re.search(r'"displayPrice"\s*:\s*\{[^}]*"value"\s*:\s*([\d.]+)', text)
-                if m:
-                    n = re.search(r'"name"\s*:\s*"([^"]{5,})"', text)
-                    try:
+                    if price and float(str(price)) > 0:
                         return {
-                            "name": n.group(1) if n else "MediaMarkt Ürünü",
-                            "price": float(m.group(1)),
+                            "name": data.get("name", "MediaMarkt Ürünü"),
+                            "price": float(str(price)),
                             "currency": "TRY",
-                            "image_url": None,
+                            "image_url": image,
                         }
-                    except Exception:
-                        pass
-
-        name_el = soup.find("h1") or soup.find(class_=re.compile("product-title|productTitle", re.I))
-        price_el = (
-            soup.find(attrs={"data-test": re.compile("price", re.I)})
-            or soup.find(class_=re.compile("price|Price|fiyat", re.I))
-        )
-        name = name_el.get_text(strip=True) if name_el else None
-        price = None
-        if price_el:
-            raw = re.sub(r"[^\d,]", "", price_el.get_text(strip=True)).replace(",", ".")
-            try:
-                price = float(raw)
             except Exception:
                 pass
-        img = soup.find("img", class_=re.compile("product|main|gallery", re.I))
-        image_url = img.get("src") if img else None
 
-        if name and price is not None:
+        # Schema.org inline: "priceCurrency":"TRY","price":15999
+        m_price = re.search(r'"priceCurrency"\s*:\s*"TRY"\s*,\s*"price"\s*:\s*([\d.]+)', text)
+        if not m_price:
+            m_price = re.search(r'"price"\s*:\s*([\d]{3,}(?:\.\d+)?)', text)
+
+        m_name = re.search(r'"name"\s*:\s*"([^"]{10,100})"', text)
+
+        name = None
+        price = None
+        image_url = None
+
+        if m_price:
+            try:
+                price = float(m_price.group(1))
+            except Exception:
+                pass
+
+        if m_name:
+            name = m_name.group(1)
+
+        # HTML fallback
+        if not name:
+            h1 = soup.find("h1")
+            if h1:
+                name = h1.get_text(strip=True)
+
+        if price is None:
+            price_el = (
+                soup.find(attrs={"data-test": re.compile("price", re.I)})
+                or soup.find(class_=re.compile("price|Price|fiyat", re.I))
+            )
+            if price_el:
+                raw = re.sub(r"[^\d]", "", price_el.get_text(strip=True))
+                try:
+                    price = float(raw)
+                except Exception:
+                    pass
+
+        img = soup.find("img", class_=re.compile("product|main|gallery", re.I))
+        if img:
+            image_url = img.get("src")
+
+        if name and price is not None and price > 0:
             return {"name": name, "price": price, "currency": "TRY", "image_url": image_url}
         return None

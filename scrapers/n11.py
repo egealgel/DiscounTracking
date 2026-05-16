@@ -9,10 +9,10 @@ class N11Scraper(BaseScraper):
         resp = self.fetch(url, use_cloudscraper=True)
         if not resp:
             return None
-
         soup = BeautifulSoup(resp.text, "lxml")
+        text = resp.text
 
-        # JSON-LD
+        # JSON-LD dene
         for script in soup.find_all("script", type="application/ld+json"):
             try:
                 data = json.loads(script.string)
@@ -22,39 +22,65 @@ class N11Scraper(BaseScraper):
                     offers = data.get("offers", {})
                     if isinstance(offers, list):
                         offers = offers[0]
-                    p = offers.get("price")
+                    price = offers.get("price")
                     image = data.get("image")
                     if isinstance(image, list):
                         image = image[0]
-                    return {
-                        "name": data.get("name", "N11 Ürünü"),
-                        "price": float(p) if p else None,
-                        "currency": "TRY",
-                        "image_url": image,
-                    }
+                    if price and float(str(price).replace(",", ".")) > 0:
+                        return {
+                            "name": data.get("name", "N11 Ürünü"),
+                            "price": float(str(price).replace(",", ".")),
+                            "currency": "TRY",
+                            "image_url": image,
+                        }
             except Exception:
                 pass
 
+        # N11 fiyatı "price":"XXXX.XX" string formatında gömülü
         name = None
         price = None
         image_url = None
 
-        name_el = soup.find("h1", class_=re.compile("proName|product-name"))
-        if not name_el:
-            name_el = soup.find("h1")
-        if name_el:
-            name = name_el.get_text(strip=True)
+        # Ürün adı
+        h1 = soup.find("h1", class_=re.compile("proName|product-name|title", re.I)) or soup.find("h1")
+        if h1:
+            name = h1.get_text(strip=True)
 
-        price_el = soup.find(class_=re.compile("newPrice|priceValue|product-price"))
-        if price_el:
-            raw = price_el.get_text(strip=True)
-            cleaned = re.sub(r"[^\d,]", "", raw).replace(",", ".")
+        # Fiyat — önce yüksek değerli olanı bul (kuruş dahil)
+        price_matches = re.findall(r'"price"\s*:\s*"([\d]+(?:[.,]\d+)?)"', text)
+        for pm in price_matches:
             try:
-                price = float(cleaned)
+                candidate = float(pm.replace(",", "."))
+                if candidate > 10:  # kuruş değil gerçek fiyat
+                    price = candidate
+                    break
             except Exception:
                 pass
 
-        img = soup.find("img", id=re.compile("product|mainImage")) or soup.find("img", class_=re.compile("product-image"))
+        # Fallback: sayısal price field
+        if price is None:
+            m = re.search(r'"price"\s*:\s*([\d]+(?:\.\d+)?)', text)
+            if m:
+                candidate = float(m.group(1))
+                if candidate > 10:
+                    price = candidate
+
+        # HTML fallback
+        if price is None:
+            for sel in [".newPrice strong", ".price", "[class*='price']"]:
+                el = soup.select_one(sel)
+                if el:
+                    raw = re.sub(r"[^\d,]", "", el.get_text(strip=True)).replace(",", ".")
+                    try:
+                        candidate = float(raw)
+                        if candidate > 10:
+                            price = candidate
+                            break
+                    except Exception:
+                        pass
+
+        img = soup.find("img", id=re.compile("product|mainImage", re.I)) or \
+              soup.find("img", class_=re.compile("product-image|main", re.I))
         if img:
             image_url = img.get("src")
 

@@ -1,8 +1,5 @@
 from .trendyol import TrendyolScraper
 from .amazon import AmazonScraper
-from .zara import ZaraScraper
-from .hm import HMScraper
-from .mango import MangoScraper
 from .hepsiburada import HepsiburadaScraper
 from .n11 import N11Scraper
 from .beymen import BeymenScraper
@@ -19,9 +16,6 @@ from .houseofsuperstep import HouseOfSuperstepScraper
 SCRAPERS = {
     "trendyol": TrendyolScraper,
     "amazon": AmazonScraper,
-    "zara": ZaraScraper,
-    "hm": HMScraper,
-    "mango": MangoScraper,
     "hepsiburada": HepsiburadaScraper,
     "n11": N11Scraper,
     "beymen": BeymenScraper,
@@ -43,12 +37,6 @@ def detect_site(url: str) -> str | None:
         return "trendyol"
     if "amazon.com" in url_lower or "amazon.de" in url_lower or "amazon.co.uk" in url_lower or "amazon.fr" in url_lower:
         return "amazon"
-    if "zara.com" in url_lower:
-        return "zara"
-    if "hm.com" in url_lower:
-        return "hm"
-    if "mango.com" in url_lower:
-        return "mango"
     if "hepsiburada.com" in url_lower:
         return "hepsiburada"
     if "n11.com" in url_lower:

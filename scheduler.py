@@ -1,8 +1,9 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 import config
 import notifier
 from scrapers import get_scraper
+from models import now_local
 
 _scheduler = None
 
@@ -31,7 +32,7 @@ def check_product(app, product_id: int):
         history = PriceHistory(product_id=product.id, price=new_price)
         db.session.add(history)
 
-        product.last_checked_at = datetime.utcnow()
+        product.last_checked_at = now_local()
         product.notify_sent = False  # reset so we can notify again if price drops again later
 
         if old_price is not None and new_price < old_price:
@@ -57,7 +58,7 @@ def check_product(app, product_id: int):
 
         product.current_price = new_price
         db.session.commit()
-        print(f"[scheduler] {product.name}: {new_price} {product.currency}")
+        print(f"[scheduler] ✓ {product.name[:50]}: {new_price} {product.currency}", flush=True)
 
 
 def check_all_products(app):
@@ -66,16 +67,20 @@ def check_all_products(app):
         products = db.session.execute(
             db.select(Product).where(Product.is_active == True)
         ).scalars().all()
+        print(f"[scheduler] >>> Checking {len(products)} products...", flush=True)
         for product in products:
             try:
                 check_product(app, product.id)
             except Exception as e:
-                print(f"[scheduler] Error checking product {product.id}: {e}")
+                print(f"[scheduler] Error checking product {product.id}: {e}", flush=True)
+        print(f"[scheduler] <<< Done.", flush=True)
 
 
 def start_scheduler(app):
     global _scheduler
-    _scheduler = BackgroundScheduler()
+    _scheduler = BackgroundScheduler(daemon=True)
+
+    # Periyodik kontrol
     _scheduler.add_job(
         func=check_all_products,
         args=[app],
@@ -83,9 +88,23 @@ def start_scheduler(app):
         minutes=config.CHECK_INTERVAL_MINUTES,
         id="price_check",
         replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=300,
     )
+
+    # Servis açılışında bir kez çalıştır (30s sonra, app tam hazır olsun diye)
+    _scheduler.add_job(
+        func=check_all_products,
+        args=[app],
+        trigger="date",
+        run_date=datetime.now() + timedelta(seconds=30),
+        id="initial_check",
+        replace_existing=True,
+    )
+
     _scheduler.start()
-    print(f"[scheduler] Started — checking every {config.CHECK_INTERVAL_MINUTES} minutes")
+    print(f"[scheduler] Started — checking every {config.CHECK_INTERVAL_MINUTES} minutes (first run in 30s)", flush=True)
 
 
 def stop_scheduler():

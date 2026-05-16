@@ -1,7 +1,15 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 db = SQLAlchemy()
+
+TZ = ZoneInfo("Europe/Istanbul")
+
+
+def now_local() -> datetime:
+    """Türkiye saati (timezone-naive olarak)."""
+    return datetime.now(TZ).replace(tzinfo=None)
 
 
 class Product(db.Model):
@@ -17,7 +25,7 @@ class Product(db.Model):
     image_url = db.Column(db.Text, nullable=True)
     is_active = db.Column(db.Boolean, default=True)
     notify_sent = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=now_local)
     last_checked_at = db.Column(db.DateTime, nullable=True)
     price_history = db.relationship("PriceHistory", backref="product", lazy=True, cascade="all, delete-orphan")
 
@@ -57,4 +65,4 @@ class PriceHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     product_id = db.Column(db.Integer, db.ForeignKey("products.id"), nullable=False)
     price = db.Column(db.Float, nullable=True)
-    checked_at = db.Column(db.DateTime, default=datetime.utcnow)
+    checked_at = db.Column(db.DateTime, default=now_local)

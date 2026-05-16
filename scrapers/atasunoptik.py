@@ -20,16 +20,28 @@ class AtasunOptikScraper(BaseScraper):
                     offers = data.get("offers", {})
                     if isinstance(offers, list):
                         offers = offers[0]
-                    price = offers.get("price")
+                    # Atasun fiyatı priceSpecification içinde tutuyor
+                    price = (
+                        offers.get("price")
+                        or offers.get("priceSpecification", {}).get("price")
+                    )
                     image = data.get("image")
                     if isinstance(image, list):
                         image = image[0]
-                    return {
-                        "name": data.get("name", "Atasun Optik Ürünü"),
-                        "price": float(price) if price else None,
-                        "currency": "TRY",
-                        "image_url": image,
-                    }
+                    name = data.get("name", "Atasun Optik Ürünü")
+                    # Marka + model adı birleştir
+                    brand = data.get("brand", {})
+                    if isinstance(brand, dict):
+                        brand = brand.get("name", "")
+                    if brand and not name.lower().startswith(brand.lower()):
+                        name = f"{brand} {name}"
+                    if price and float(str(price)) > 0:
+                        return {
+                            "name": name,
+                            "price": float(str(price)),
+                            "currency": "TRY",
+                            "image_url": image,
+                        }
             except Exception:
                 pass
 

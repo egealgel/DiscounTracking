@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Ürün Ekle — DiscounTracking{% endblock %}
+
+{% block content %}
+<div class="add-layout">
+
+  <!-- Sol: Form -->
+  <div class="add-form-col">
+    <h1>Ürün Ekle</h1>
+    <p class="subtitle">Takip etmek istediğiniz ürünün URL'sini yapıştırın.</p>
+
+    <div class="supported-sites">
+      <span class="site-badge site-trendyol">trendyol</span>
+      <span class="site-badge site-amazon">amazon</span>
+      <span class="site-badge site-hepsiburada">hepsiburada</span>
+      <span class="site-badge site-n11">n11</span>
+      <span class="site-badge site-beymen">beymen</span>
+      <span class="site-badge site-boyner">boyner</span>
+      <span class="site-badge site-superstep">superstep</span>
+      <span class="site-badge site-fashfed">fashfed</span>
+      <span class="site-badge site-sneaksup">sneaksup</span>
+      <span class="site-badge site-vakkorama">vakkorama</span>
+      <span class="site-badge site-occasion">occasion</span>
+      <span class="site-badge site-mediamarkt">mediamarkt</span>
+      <span class="site-badge site-atasunoptik">atasun optik</span>
+      <span class="site-badge site-zara">zara</span>
+      <span class="site-badge site-hm">h&amp;m</span>
+      <span class="site-badge site-mango">mango</span>
+    </div>
+
+    <form method="POST" class="product-form" id="addForm">
+      <div class="form-group">
+        <label for="url">Ürün URL'si</label>
+        <input
+          type="url"
+          id="url"
+          name="url"
+          placeholder="https://www.trendyol.com/..."
+          required
+          autofocus
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="target_price">Hedef Fiyat <span class="optional">(isteğe bağlı)</span></label>
+        <input
+          type="text"
+          id="target_price"
+          name="target_price"
+          placeholder="Örn: 299.90"
+        />
+        <small>Bu fiyata düştüğünde Telegram'dan bildirim alırsınız.</small>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-large" id="submitBtn">
+        Takip Başlat
+      </button>
+      <p class="loading-hint" id="loadingHint" style="display:none">
+        ⏳ Fiyat bilgileri alınıyor, lütfen bekleyin…
+      </p>
+    </form>
+  </div>
+
+  <!-- Sağ: Ürün listesi -->
+  <div class="add-list-col">
+    <div class="list-header">
+      <h2>Takip Listesi</h2>
+      <span class="badge">{{ products|length }} ürün</span>
+    </div>
+
+    {% if not products %}
+      <p class="empty-hint">Henüz ürün eklenmedi.</p>
+    {% else %}
+      <div class="side-product-list">
+        {% for product in products %}
+        <a href="{{ url_for('product_detail', product_id=product.id) }}" class="side-product-item {% if not product.is_active %}inactive{% endif %}">
+          {% if product.image_url %}
+            <img src="{{ product.image_url }}" alt="" />
+          {% else %}
+            <div class="side-product-placeholder">{{ product.site[0].upper() }}</div>
+          {% endif %}
+          <div class="side-product-info">
+            <span class="site-badge site-{{ product.site }}">{{ product.site }}</span>
+            <p class="side-product-name">{{ product.name[:55] }}{% if product.name|length > 55 %}…{% endif %}</p>
+            {% if product.current_price is not none %}
+              {% set symbol = {'TRY': '₺', 'EUR': '€', 'USD': '$', 'GBP': '£'}.get(product.currency, product.currency) %}
+              <span class="side-product-price">{{ "%.2f"|format(product.current_price) }} {{ symbol }}</span>
+              {% if product.target_price %}
+                <span class="side-product-target">Hedef: {{ "%.2f"|format(product.target_price) }} {{ symbol }}</span>
+              {% endif %}
+            {% endif %}
+          </div>
+          {% if not product.is_active %}<span class="paused-dot" title="Durduruldu">⏸</span>{% endif %}
+        </a>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.getElementById('addForm').addEventListener('submit', function() {
+    document.getElementById('submitBtn').disabled = true;
+    document.getElementById('submitBtn').textContent = 'Yükleniyor…';
+    document.getElementById('loadingHint').style.display = 'block';
+  });
+</script>
+{% endblock %}

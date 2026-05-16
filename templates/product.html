@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% block title %}{{ product.name[:50] }} — DiscounTracking{% endblock %}
+
+{% block content %}
+{% set symbol = {'TRY': '₺', 'EUR': '€', 'USD': '$', 'GBP': '£'}.get(product.currency, product.currency) %}
+
+<div class="product-detail">
+  <div class="detail-header">
+    {% if product.image_url %}
+      <img src="{{ product.image_url }}" alt="{{ product.name }}" class="detail-image" />
+    {% endif %}
+    <div class="detail-info">
+      <span class="site-badge site-{{ product.site }}">{{ product.site }}</span>
+      <h1>{{ product.name }}</h1>
+
+      <div class="price-block">
+        {% if product.current_price is not none %}
+          <span class="price-big">{{ "%.2f"|format(product.current_price) }} {{ symbol }}</span>
+          {% if product.lowest_price and product.lowest_price < product.current_price %}
+            <span class="price-lowest">En düşük: {{ "%.2f"|format(product.lowest_price) }} {{ symbol }}</span>
+          {% endif %}
+        {% else %}
+          <span class="price-unknown">Fiyat alınamadı</span>
+        {% endif %}
+      </div>
+
+      <div class="detail-meta">
+        {% if product.last_checked_at %}
+          <span>Son kontrol: {{ product.last_checked_at.strftime('%d.%m.%Y %H:%M') }}</span>
+        {% endif %}
+        <span>Eklendi: {{ product.created_at.strftime('%d.%m.%Y') }}</span>
+        <span class="status-badge {% if product.is_active %}status-active{% else %}status-paused{% endif %}">
+          {% if product.is_active %}Aktif{% else %}Durduruldu{% endif %}
+        </span>
+      </div>
+
+      <div class="action-bar">
+        <a href="{{ product.url }}" target="_blank" rel="noopener" class="btn btn-primary">Siteye Git</a>
+
+        <form method="POST" action="{{ url_for('check_now', product_id=product.id) }}" style="display:inline">
+          <button type="submit" class="btn btn-secondary">Şimdi Kontrol Et</button>
+        </form>
+
+        <form method="POST" action="{{ url_for('toggle_product', product_id=product.id) }}" style="display:inline">
+          <button type="submit" class="btn btn-secondary">
+            {% if product.is_active %}Durdur{% else %}Devam Ettir{% endif %}
+          </button>
+        </form>
+
+        <form method="POST" action="{{ url_for('delete_product', product_id=product.id) }}"
+              style="display:inline"
+              onsubmit="return confirm('Bu ürünü silmek istediğinizden emin misiniz?')">
+          <button type="submit" class="btn btn-danger">Sil</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Target Price -->
+  <div class="section">
+    <h2>Hedef Fiyat</h2>
+    <form method="POST" action="{{ url_for('set_target', product_id=product.id) }}" class="inline-form">
+      <input
+        type="text"
+        name="target_price"
+        placeholder="Hedef fiyat girin"
+        value="{{ '%.2f'|format(product.target_price) if product.target_price else '' }}"
+      />
+      <span class="currency-label">{{ symbol }}</span>
+      <button type="submit" class="btn btn-secondary">Kaydet</button>
+    </form>
+    {% if product.target_price %}
+      <p class="hint">
+        Mevcut fiyat hedefin
+        {% if product.current_price and product.current_price <= product.target_price %}
+          <strong>altında</strong> 🎉
+        {% else %}
+          {% set diff = (product.current_price - product.target_price) if product.current_price else 0 %}
+          <strong>{{ "%.2f"|format(diff) }} {{ symbol }} üzerinde</strong>
+        {% endif %}
+      </p>
+    {% endif %}
+  </div>
+
+  <!-- Price Chart -->
+  {% if history|length > 1 %}
+  <div class="section">
+    <h2>Fiyat Geçmişi</h2>
+    <canvas id="priceChart" height="80"></canvas>
+  </div>
+  {% endif %}
+
+  <!-- Price History Table -->
+  <div class="section">
+    <h2>Tüm Kayıtlar</h2>
+    {% if history %}
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>Tarih</th>
+            <th>Fiyat</th>
+            <th>Değişim</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% set rev = history|reverse|list %}
+          {% for entry in rev %}
+            {% set idx = loop.index0 %}
+            {% set prev = rev[idx + 1] if idx + 1 < rev|length else none %}
+            <tr>
+              <td>{{ entry.checked_at.strftime('%d.%m.%Y %H:%M') }}</td>
+              <td>{{ "%.2f"|format(entry.price) if entry.price else "—" }} {{ symbol }}</td>
+              <td>
+                {% if prev and prev.price and entry.price %}
+                  {% set diff = entry.price - prev.price %}
+                  {% if diff < 0 %}
+                    <span class="change-down">▼ {{ "%.2f"|format(diff|abs) }}</span>
+                  {% elif diff > 0 %}
+                    <span class="change-up">▲ {{ "%.2f"|format(diff) }}</span>
+                  {% else %}
+                    <span class="change-none">—</span>
+                  {% endif %}
+                {% else %}
+                  <span class="change-none">—</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>Henüz fiyat kaydı yok.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if history|length > 1 %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+  const labels = {{ history|map(attribute='checked_at')|map('fmt_date')|list|tojson }};
+  const prices = {{ history|map(attribute='price')|list|tojson }};
+  const targetPrice = {{ product.target_price|tojson }};
+
+  const ctx = document.getElementById('priceChart').getContext('2d');
+  const datasets = [{
+    label: 'Fiyat',
+    data: prices,
+    borderColor: '#6366f1',
+    backgroundColor: 'rgba(99,102,241,0.1)',
+    borderWidth: 2,
+    pointRadius: 4,
+    tension: 0.3,
+    fill: true,
+  }];
+
+  if (targetPrice) {
+    datasets.push({
+      label: 'Hedef Fiyat',
+      data: Array(prices.length).fill(targetPrice),
+      borderColor: '#10b981',
+      borderDash: [6, 3],
+      borderWidth: 1.5,
+      pointRadius: 0,
+    });
+  }
+
+  new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { position: 'top' } },
+      scales: {
+        y: { beginAtZero: false, ticks: { callback: v => v.toLocaleString('tr-TR') + ' {{ symbol }}' } }
+      }
+    }
+  });
+</script>
+{% endif %}
+{% endblock %}

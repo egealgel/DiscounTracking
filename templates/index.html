@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Takip Listesi — DiscounTracking{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Takip Listesi</h1>
+  <span class="badge">{{ products|length }} ürün</span>
+</div>
+
+{% if not products %}
+  <div class="empty-state">
+    <p>Henüz takip edilen ürün yok.</p>
+    <a href="{{ url_for('add_product') }}" class="btn btn-primary">İlk ürünü ekle</a>
+  </div>
+{% else %}
+  <div class="product-grid">
+    {% for product in products %}
+    <a href="{{ url_for('product_detail', product_id=product.id) }}" class="product-card {% if not product.is_active %}inactive{% endif %}">
+      {% if product.image_url %}
+        <div class="card-image">
+          <img src="{{ product.image_url }}" alt="{{ product.name }}" loading="lazy" />
+        </div>
+      {% else %}
+        <div class="card-image card-image--empty">
+          <span>{{ product.site[0].upper() }}</span>
+        </div>
+      {% endif %}
+
+      <div class="card-body">
+        <span class="site-badge site-{{ product.site }}">{{ product.site }}</span>
+        <h3 class="card-title">{{ product.name[:80] }}{% if product.name|length > 80 %}…{% endif %}</h3>
+
+        <div class="price-row">
+          {% if product.current_price is not none %}
+            {% set symbol = {'TRY': '₺', 'EUR': '€', 'USD': '$', 'GBP': '£'}.get(product.currency, product.currency) %}
+            <span class="price">{{ "%.2f"|format(product.current_price) }} {{ symbol }}</span>
+            {% if product.target_price and product.current_price <= product.target_price %}
+              <span class="badge badge-success">🎯 Hedef tutturuldu</span>
+            {% elif product.target_price %}
+              <span class="target">Hedef: {{ "%.2f"|format(product.target_price) }} {{ symbol }}</span>
+            {% endif %}
+          {% else %}
+            <span class="price-unknown">Fiyat alınamadı</span>
+          {% endif %}
+        </div>
+
+        {% if product.last_checked_at %}
+          <span class="last-checked">Son kontrol: {{ product.last_checked_at.strftime('%d.%m.%Y %H:%M') }}</span>
+        {% endif %}
+      </div>
+
+      {% if not product.is_active %}
+        <div class="card-paused">Durduruldu</div>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
+{% endif %}
+{% endblock %}

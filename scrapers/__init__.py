@@ -14,6 +14,7 @@ from .vakkorama import VakkoramaScraper
 from .occasion import OccasionScraper
 from .mediamarkt import MediaMarktScraper
 from .atasunoptik import AtasunOptikScraper
+from .houseofsuperstep import HouseOfSuperstepScraper
 
 SCRAPERS = {
     "trendyol": TrendyolScraper,
@@ -32,6 +33,7 @@ SCRAPERS = {
     "occasion": OccasionScraper,
     "mediamarkt": MediaMarktScraper,
     "atasunoptik": AtasunOptikScraper,
+    "houseofsuperstep": HouseOfSuperstepScraper,
 }
 
 
@@ -55,6 +57,8 @@ def detect_site(url: str) -> str | None:
         return "beymen"
     if "boyner.com.tr" in url_lower:
         return "boyner"
+    if "houseofsuperstep.com" in url_lower:
+        return "houseofsuperstep"
     if "superstep.com.tr" in url_lower:
         return "superstep"
     if "fashfed.com" in url_lower:
